@@ -8,6 +8,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AlgorigoBleServiceLibrary">
+        <service
+            android:name=".TestService"
+            android:enabled="true"
+            android:exported="false"></service>
+
         <activity
             android:name=".TestActivity"
             android:exported="true"

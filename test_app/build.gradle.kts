@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.algorigo.test_app"
-    compileSdk = 33
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.algorigo.test_app"
         minSdk = 24
-        targetSdk = 33
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
@@ -64,6 +64,8 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 
+    implementation(project(mapOf("path" to ":algorigobleservice")))
+
     // ReactiveX
     implementation("io.reactivex.rxjava3:rxkotlin:3.0.1")
     implementation("io.reactivex.rxjava3:rxandroid:3.0.0")
@@ -75,4 +77,7 @@ dependencies {
 //    } else {
         implementation("com.algorigo.rx:algorigoble2:2.3.1")
 //    }
+
+    // AlgorigoUtil
+    implementation("com.algorigo.library:algorigoutil:1.5.0")
 }
