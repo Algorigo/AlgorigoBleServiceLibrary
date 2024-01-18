@@ -38,7 +38,7 @@ class MyGattDelegate(context: Context) : BleGattDelegate {
         return BleAdvertiseOption
             .Builder()
             .setName("TestBle")
-            .setUuid(MyGattDelegate.SERVICE_UUID)
+            .setUuid(SERVICE_UUID)
             .build()
     }
 

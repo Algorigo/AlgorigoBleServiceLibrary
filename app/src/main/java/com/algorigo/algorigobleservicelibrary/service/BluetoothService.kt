@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
-import android.bluetooth.BluetoothGattService
 import android.content.Context
 import android.content.Intent
 import android.os.Binder
@@ -16,9 +15,6 @@ import com.algorigo.algorigobleservicelibrary.R
 import com.algorigo.algorigobleservicelibrary.ble_service.MyGattDelegate
 import com.algorigo.algorigobleservicelibrary.util.NotificationUtil
 import com.algorigo.library.rx.Rx2ServiceBindingFactory
-import com.rouddy.twophonesupporter.BleGattServiceGenerator.Companion.initBatteryService
-import com.rouddy.twophonesupporter.BleGattServiceGenerator.Companion.initIndicateCharacteristic
-import com.rouddy.twophonesupporter.BleGattServiceGenerator.Companion.initWritableCharacteristic
 import com.rouddy.twophonesupporter.BleGattServiceGenerator.Companion.startServer
 import io.reactivex.rxjava3.disposables.Disposable
 import kotlin.system.exitProcess
