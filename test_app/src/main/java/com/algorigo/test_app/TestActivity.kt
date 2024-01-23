@@ -10,36 +10,42 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.algorigo.test_app.ui.theme.AlgorigoBleServiceLibraryTheme
 import com.jakewharton.rxrelay3.PublishRelay
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
-import io.reactivex.rxjava3.core.Completable
+import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import io.reactivex.rxjava3.kotlin.addTo
+import kotlinx.coroutines.rx3.asFlow
 
 class TestActivity : ComponentActivity() {
 
     private var disposable = CompositeDisposable()
-    private var title = mutableStateOf("Start Scan")
-    private var states = mutableStateListOf<TestBle.State>()
     private val buttonRelay = PublishRelay.create<Any>()
+    private lateinit var testViewModel: TestViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         initSubscribe()
+
+        testViewModel = ViewModelProvider(this).get(TestViewModel::class.java)
+
         setContent {
-            AlgorigoBleServiceLibraryTheme {
-                // A surface container using the 'background' color from the theme
+            val buttonState = scanningObservable()
+                .asFlow()
+                .collectAsStateWithLifecycle(initialValue = "Start Scan")
+            val statesFlow = testViewModel.statesFlow.collectAsStateWithLifecycle()
+
+            AlgorigoBleServiceLibraryTheme { // A surface container using the 'background' color from the theme
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    ScanButton(title = title, onClick = {
+                    ScanButton(buttonState.value, Modifier.fillMaxWidth()) {
                         onScanClick()
-                    }, modifier = Modifier.fillMaxWidth())
-                    DeviceList(states = states, modifier = Modifier.fillMaxWidth())
+                    }
+                    DeviceList(states = statesFlow.value, modifier = Modifier.fillMaxWidth())
                 }
             }
         }
@@ -48,46 +54,43 @@ class TestActivity : ComponentActivity() {
     private fun initSubscribe() {
         TestService
             .bindServiceObservble(this)
-            .flatMapCompletable { service ->
-                Completable.merge(listOf(
-                    service.scanningRelay
-                        .switchMapSingle { isScanning ->
-                            buttonRelay.firstOrError()
-                                .doOnSuccess {
-                                    if (isScanning) {
-                                        service.stopScan()
-                                    } else {
-                                        service.startScan()
-                                    }
-                                }
-                                .map { !isScanning }
-                        }
-                        .observeOn(AndroidSchedulers.mainThread())
-                        .doOnNext {
-                            if (it) {
-                                title.value = "Stop Scan"
-                            } else {
-                                title.value = "Start Scan"
-                            }
-                        }
-                        .ignoreElements(),
-                    service.statesRelay
-                        .observeOn(AndroidSchedulers.mainThread())
-                        .doOnNext {
-                            states.clear()
-                            states.addAll(it)
-                        }
-                        .ignoreElements(),
-                ))
+            .flatMap { service ->
+                service.statesRelay
             }
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe({
-
+                testViewModel.updateStates(it)
             }, {
-
+                Log.e(LOG_TAG, "states relay", it)
             })
             .addTo(disposable)
     }
+
+    private fun scanningObservable() = TestService
+        .bindServiceObservble(this)
+        .flatMap { service ->
+            service.scanningRelay.switchMap { isScanning ->
+                Observable
+                    .just(isScanning)
+                    .concatWith(buttonRelay
+                        .firstOrError()
+                        .doOnSuccess {
+                            if (isScanning) {
+                                service.stopScan()
+                            } else {
+                                service.startScan()
+                            }
+                        }
+                        .ignoreElement())
+            }
+        }
+        .map {
+            if (it) {
+                "Stop Scan"
+            } else {
+                "Start Scan"
+            }
+        }
 
     override fun onDestroy() {
         super.onDestroy()
@@ -105,9 +108,9 @@ class TestActivity : ComponentActivity() {
 }
 
 @Composable
-fun ScanButton(title: MutableState<String>, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ScanButton(title: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     FilledTonalButton(modifier = Modifier.fillMaxWidth(), onClick = onClick) {
-        Text(title.value)
+        Text(title)
     }
 }
 
@@ -133,8 +136,7 @@ fun Device(state: TestBle.State, modifier: Modifier = Modifier) {
 @Composable
 fun Greeting(name: String, modifier: Modifier = Modifier) {
     Text(
-        text = "Hello $name!",
-        modifier = modifier
+        text = "Hello $name!", modifier = modifier
     )
 }
 

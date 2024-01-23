@@ -5,13 +5,14 @@ import android.bluetooth.BluetoothGattService
 import android.content.Context
 import android.content.Context.BATTERY_SERVICE
 import android.os.BatteryManager
-import android.util.Log
 import com.algorigo.algorigobleservice.BleGattDelegate
 import com.algorigo.algorigobleservicelibrary.util.throttle
 import com.algorigo.algorigobleservicelibrary.util.toByteArray
+import com.jakewharton.rxrelay3.PublishRelay
 import com.rouddy.twophonesupporter.BleAdvertiseOption
 import com.rouddy.twophonesupporter.BleGattServiceGenerator
 import io.reactivex.rxjava3.core.Observable
+import java.util.Date
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
@@ -42,28 +43,28 @@ class MyGattDelegate(context: Context) : BleGattDelegate {
             .build()
     }
 
-    override fun handleEvent(event: BleGattServiceGenerator.BluetoothDelegateEvent) {
+    override fun handleEvent(event: BleGattServiceGenerator.BluetoothServiceEvent) {
         when (event) {
-            is BleGattServiceGenerator.BluetoothDelegateEvent.CharacteristicReadRequest -> {
+            is BleGattServiceGenerator.BluetoothServiceEvent.CharacteristicReadRequest -> {
                 if (event.characteristic.uuid == BleGattServiceGenerator.UUID_BATTERY_LEVEL) {
                     handleReadEvent(event.callback)
                 }
             }
 
-            is BleGattServiceGenerator.BluetoothDelegateEvent.CharacteristicWriteRequest -> {
+            is BleGattServiceGenerator.BluetoothServiceEvent.CharacteristicWriteRequest -> {
                 event.callback(event.value)
             }
 
-            is BleGattServiceGenerator.BluetoothDelegateEvent.NotificationStartRequest -> {
+            is BleGattServiceGenerator.BluetoothServiceEvent.NotificationStartRequest -> {
                 if (event.characteristic.uuid == NOTIFY_CHARACTERISTIC_UUID) {
-                    event.callback(
-                        Observable
-                            .interval(1, TimeUnit.SECONDS)
-                            .map { it.toByteArray() }
-                            .throttle(event.onNotificationSentObservable)
-                    )
+                    event.callback(Observable
+                        .interval(1, TimeUnit.SECONDS)
+                        .map { it.toByteArray() }
+                        .throttle(event.onNotificationSentObservable))
                 }
             }
+
+            else -> {}
         }
     }
 

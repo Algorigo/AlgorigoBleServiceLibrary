@@ -15,8 +15,12 @@ import com.algorigo.algorigobleservicelibrary.R
 import com.algorigo.algorigobleservicelibrary.ble_service.MyGattDelegate
 import com.algorigo.algorigobleservicelibrary.util.NotificationUtil
 import com.algorigo.library.rx.Rx2ServiceBindingFactory
+import com.jakewharton.rxrelay3.BehaviorRelay
+import com.rouddy.twophonesupporter.BleGattServiceGenerator
 import com.rouddy.twophonesupporter.BleGattServiceGenerator.Companion.startServer
+import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.disposables.Disposable
+import java.util.Date
 import kotlin.system.exitProcess
 
 class BluetoothService : Service() {
@@ -30,6 +34,9 @@ class BluetoothService : Service() {
     private val binder = ServiceBinder()
     private lateinit var myGattDelegate: MyGattDelegate
     private var advertisingDisposable: Disposable? = null
+    private var connectionHistoryRelay = BehaviorRelay.create<List<Pair<Date, Date?>>>()
+    val connectionHistoryObservable: Observable<List<Pair<Date, Date?>>>
+        get() = connectionHistoryRelay
 
     override fun onCreate() {
         super.onCreate()
@@ -96,9 +103,30 @@ class BluetoothService : Service() {
                 .doFinally {
                     advertisingDisposable = null
                 }
+                .doOnNext {
+                    myGattDelegate.handleEvent(it)
+                }
+                .scan(listOf<Pair<Date, Date?>>()) { acc, event ->
+                    when (event) {
+                        is BleGattServiceGenerator.BluetoothServiceEvent.ClientConnected -> {
+                            acc
+                                .toMutableList()
+                                .also { it.add(Pair(Date(), null)) }
+                        }
+
+                        is BleGattServiceGenerator.BluetoothServiceEvent.ClientDisconnected -> {
+                            val index = acc.indexOfFirst { it.second == null }
+                            acc
+                                .toMutableList()
+                                .also { it[index] = Pair(it[index].first, Date()) }
+                        }
+
+                        else -> acc
+                    }
+                }
                 .subscribe({
                     Log.e(LOG_TAG, "event:$it")
-                    myGattDelegate.handleEvent(it)
+                    connectionHistoryRelay.accept(it)
                 }, {
                     Log.e(LOG_TAG, "error", it)
                 })

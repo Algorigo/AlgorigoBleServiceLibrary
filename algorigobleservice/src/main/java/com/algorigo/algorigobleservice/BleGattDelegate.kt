@@ -7,5 +7,5 @@ import com.rouddy.twophonesupporter.BleGattServiceGenerator
 interface BleGattDelegate {
     fun getServices(): List<BluetoothGattService>
     fun getAdvertiseOption(): BleAdvertiseOption
-    fun handleEvent(event: BleGattServiceGenerator.BluetoothDelegateEvent)
+    fun handleEvent(event: BleGattServiceGenerator.BluetoothServiceEvent)
 }
