@@ -19,3 +19,4 @@ rootProject.name = "AlgorigoBleServiceLibrary"
 include(":app")
 include(":algorigobleservice")
 include(":test_app")
+include(":common_library")

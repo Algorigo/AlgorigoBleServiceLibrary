@@ -1,22 +1,33 @@
 package com.algorigo.test_app
 
-import android.app.Service
 import android.bluetooth.BluetoothDevice
-import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
+import androidx.annotation.StringRes
+import androidx.core.app.NotificationManagerCompat
 import com.algorigo.algorigoble2.BleDevice
 import com.algorigo.algorigoble2.BleManager
 import com.algorigo.algorigoble2.BleScanSettings
+import com.algorigo.common_library.AbsForegroundService
 import com.algorigo.library.rx.Rx2ServiceBindingFactory
 import com.jakewharton.rxrelay3.BehaviorRelay
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.disposables.Disposable
 import java.util.Optional
 
-class TestService : Service() {
+class TestService : AbsForegroundService() {
+
+    enum class NotificationType(
+        val channelId: Int,
+        @StringRes val channelName: Int,
+        val importance: Int,
+        val hasBadge: Boolean = false
+    ) {
+        LOCAL_DEVICE_SERVICE(1001, R.string.app_name, NotificationManagerCompat.IMPORTANCE_LOW)
+        ;
+    }
 
     inner class ServiceBinder : Binder() {
         fun getService(): TestService {
@@ -44,6 +55,12 @@ class TestService : Service() {
     override fun onBind(intent: Intent): IBinder {
         return binder
     }
+
+    override fun getChannelId(): Int = NotificationType.LOCAL_DEVICE_SERVICE.channelId
+
+    override fun getChannelName(): String = getString(NotificationType.LOCAL_DEVICE_SERVICE.channelName)
+
+    override fun getIconRes(): Int = R.drawable.ic_launcher_foreground
 
     fun startScan() {
         if (disposable != null) {
