@@ -47,8 +47,9 @@ class MainActivity : ComponentActivity() {
                     LazyColumn(content = {
                         items(histories.value.size) { index ->
                             Column(Modifier.padding(16.dp)) {
-                                Text(histories.value[index].first.toString())
-                                Text(histories.value[index].second?.toString() ?: "")
+                                Text(histories.value[index].first)
+                                Text(histories.value[index].second.toString())
+                                Text(histories.value[index].third?.toString() ?: "")
                             }
                         }
                     })

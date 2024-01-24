@@ -34,8 +34,8 @@ class BluetoothService : Service() {
     private val binder = ServiceBinder()
     private lateinit var myGattDelegate: MyGattDelegate
     private var advertisingDisposable: Disposable? = null
-    private var connectionHistoryRelay = BehaviorRelay.create<List<Pair<Date, Date?>>>()
-    val connectionHistoryObservable: Observable<List<Pair<Date, Date?>>>
+    private var connectionHistoryRelay = BehaviorRelay.create<List<Triple<String, Date, Date?>>>()
+    val connectionHistoryObservable: Observable<List<Triple<String, Date, Date?>>>
         get() = connectionHistoryRelay
 
     override fun onCreate() {
@@ -106,19 +106,19 @@ class BluetoothService : Service() {
                 .doOnNext {
                     myGattDelegate.handleEvent(it)
                 }
-                .scan(listOf<Pair<Date, Date?>>()) { acc, event ->
+                .scan(listOf<Triple<String, Date, Date?>>()) { acc, event ->
                     when (event) {
                         is BleGattServiceGenerator.BluetoothServiceEvent.ClientConnected -> {
                             acc
                                 .toMutableList()
-                                .also { it.add(Pair(Date(), null)) }
+                                .also { it.add(Triple(event.client.address, Date(), null)) }
                         }
 
                         is BleGattServiceGenerator.BluetoothServiceEvent.ClientDisconnected -> {
-                            val index = acc.indexOfFirst { it.second == null }
+                            val index = acc.indexOfFirst { it.first == event.client.address && it.third == null }
                             acc
                                 .toMutableList()
-                                .also { it[index] = Pair(it[index].first, Date()) }
+                                .also { it[index] = Triple(it[index]. first, it[index].second, Date()) }
                         }
 
                         else -> acc
