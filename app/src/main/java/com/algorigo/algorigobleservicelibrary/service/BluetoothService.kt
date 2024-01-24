@@ -1,22 +1,16 @@
 package com.algorigo.algorigobleservicelibrary.service
 
 import android.annotation.SuppressLint
-import android.app.Notification
-import android.app.PendingIntent
-import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Binder
-import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.annotation.StringRes
-import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.algorigo.algorigobleservicelibrary.R
 import com.algorigo.algorigobleservicelibrary.ble_service.MyGattDelegate
 import com.algorigo.common_library.AbsForegroundService
-import com.algorigo.common_library.NotificationUtil
 import com.algorigo.library.rx.Rx2ServiceBindingFactory
 import com.jakewharton.rxrelay3.BehaviorRelay
 import com.rouddy.twophonesupporter.BleGattServiceGenerator
@@ -24,7 +18,6 @@ import com.rouddy.twophonesupporter.BleGattServiceGenerator.Companion.startServe
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.disposables.Disposable
 import java.util.Date
-import kotlin.system.exitProcess
 
 class BluetoothService : AbsForegroundService() {
 
@@ -47,6 +40,10 @@ class BluetoothService : AbsForegroundService() {
     private val binder = ServiceBinder()
     private lateinit var myGattDelegate: MyGattDelegate
     private var advertisingDisposable: Disposable? = null
+    private var _advertisingRelay = BehaviorRelay.create<Boolean>()
+    val advertisingObservable: Observable<Boolean>
+        get() = _advertisingRelay
+
     private var connectionHistoryRelay = BehaviorRelay.create<List<Triple<String, Date, Date?>>>()
     val connectionHistoryObservable: Observable<List<Triple<String, Date, Date?>>>
         get() = connectionHistoryRelay
@@ -69,8 +66,10 @@ class BluetoothService : AbsForegroundService() {
     @SuppressLint("MissingPermission")
     fun toggleAdvertising() {
         if (advertisingDisposable != null) {
+            _advertisingRelay.accept(false)
             advertisingDisposable?.dispose()
         } else {
+            _advertisingRelay.accept(true)
             advertisingDisposable = startServer(
                 this, myGattDelegate
             )

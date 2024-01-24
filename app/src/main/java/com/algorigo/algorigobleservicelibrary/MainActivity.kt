@@ -33,6 +33,9 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
+            val buttonStte = advertisingObservable()
+                .asFlow()
+                .collectAsStateWithLifecycle(initialValue = "Start Advertising")
             val histories = BluetoothService.bindServiceObservble(this)
                 .flatMap { it.connectionHistoryObservable }
                 .asFlow()
@@ -42,7 +45,7 @@ class MainActivity : ComponentActivity() {
                 // A surface container using the 'background' color from the theme
                 Column(modifier = Modifier.fillMaxSize()) {
                     FilledTonalButton(onClick = { onStartAdvertisingClick() }) {
-                        Text("Start Advertising")
+                        Text(buttonStte.value)
                     }
                     LazyColumn(content = {
                         items(histories.value.size) { index ->
@@ -57,6 +60,16 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    private fun advertisingObservable() = BluetoothService.bindServiceObservble(this)
+        .flatMap { it.advertisingObservable }
+        .map {
+            if (it) {
+                "Stop Advertising"
+            } else {
+                "Start Advertising"
+            }
+        }
 
     private fun onStartAdvertisingClick() {
         BluetoothService.bindServiceObservble(this)

@@ -69,7 +69,7 @@ class TestActivity : ComponentActivity() {
     private fun scanningObservable() = TestService
         .bindServiceObservble(this)
         .flatMap { service ->
-            service.scanningRelay.switchMap { isScanning ->
+            service.scanningObservable.switchMap { isScanning ->
                 Observable
                     .just(isScanning)
                     .concatWith(buttonRelay

@@ -37,7 +37,9 @@ class TestService : AbsForegroundService() {
 
     private val binder = ServiceBinder()
     private var disposable: Disposable? = null
-    val scanningRelay = BehaviorRelay.create<Boolean>().apply { accept(false) }
+    private val _scanningRelay = BehaviorRelay.create<Boolean>().apply { accept(false) }
+    val scanningObservable: Observable<Boolean>
+        get() = _scanningRelay
     val statesRelay = BehaviorRelay.create<List<TestBle.State>>()
 
     private lateinit var manager: BleManager
@@ -67,7 +69,7 @@ class TestService : AbsForegroundService() {
             return
         }
 
-        scanningRelay.accept(true)
+        _scanningRelay.accept(true)
         disposable = manager.scanObservable(
             BleScanSettings
                 .Builder()
@@ -97,7 +99,7 @@ class TestService : AbsForegroundService() {
             .map { it.values.sortedBy { it.connectedTime } }
             .doFinally {
                 disposable = null
-                scanningRelay.accept(false)
+                _scanningRelay.accept(false)
             }
             .subscribe({
                 statesRelay.accept(it)
