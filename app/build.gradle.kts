@@ -79,6 +79,6 @@ dependencies {
     // AlgorigoUtil
     implementation("com.algorigo.library:algorigoutil:1.5.0")
 
-    // RxPermissions
-    implementation("com.github.tbruyelle:rxpermissions:0.12")
+    // Permission
+    implementation("com.google.accompanist:accompanist-permissions:0.34.0")
 }

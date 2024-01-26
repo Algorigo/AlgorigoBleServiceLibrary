@@ -54,12 +54,6 @@ abstract class AbsForegroundService : Service() {
         startForeground(getChannelId(), notification)
     }
 
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        super.onTaskRemoved(rootIntent)
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-    }
-
     companion object {
         private const val ACTION_STOP_SERVICE = "ACTION_STOP_SERVICE"
     }

@@ -84,4 +84,7 @@ dependencies {
 
     // AlgorigoUtil
     implementation("com.algorigo.library:algorigoutil:1.5.0")
+
+    // Permission
+    implementation("com.google.accompanist:accompanist-permissions:0.34.0")
 }

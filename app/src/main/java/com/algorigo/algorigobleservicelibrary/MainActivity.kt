@@ -1,30 +1,33 @@
 package com.algorigo.algorigobleservicelibrary
 
+import android.Manifest
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.algorigo.algorigobleservicelibrary.service.BluetoothService
 import com.algorigo.algorigobleservicelibrary.ui.theme.AlgorigoBleServiceLibraryTheme
-import com.tbruyelle.rxpermissions3.RxPermissions
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.PermissionState
+import com.google.accompanist.permissions.PermissionStatus
+import com.google.accompanist.permissions.rememberPermissionState
 import kotlinx.coroutines.rx3.asFlow
 
+@OptIn(ExperimentalPermissionsApi::class)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,7 +36,9 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            val buttonStte = advertisingObservable()
+            val advertisePermissionState = rememberPermissionState(Manifest.permission.BLUETOOTH_ADVERTISE)
+            val connectPermissionState = rememberPermissionState(Manifest.permission.BLUETOOTH_CONNECT)
+            val buttonState = advertisingObservable()
                 .asFlow()
                 .collectAsStateWithLifecycle(initialValue = "Start Advertising")
             val histories = BluetoothService.bindServiceObservble(this)
@@ -44,8 +49,44 @@ class MainActivity : ComponentActivity() {
             AlgorigoBleServiceLibraryTheme {
                 // A surface container using the 'background' color from the theme
                 Column(modifier = Modifier.fillMaxSize()) {
-                    FilledTonalButton(onClick = { onStartAdvertisingClick() }) {
-                        Text(buttonStte.value)
+                    advertisePermissionState.status.also {
+                        when (it) {
+                            is PermissionStatus.Granted -> {
+                                Text("${advertisePermissionState.permission} Granted")
+                            }
+                            is PermissionStatus.Denied -> {
+                                if (!it.shouldShowRationale) {
+                                    Text("${advertisePermissionState.permission} Permission Rational")
+                                }
+                                FilledTonalButton(onClick = { advertisePermissionState.launchPermissionRequest() }) {
+                                    Text("Request Permission ${advertisePermissionState.permission}")
+                                }
+                            }
+                        }
+                    }
+                    connectPermissionState.status.also {
+                        when (it) {
+                            is PermissionStatus.Granted -> {
+                                Text("${connectPermissionState.permission} Granted")
+                            }
+                            is PermissionStatus.Denied -> {
+                                if (!it.shouldShowRationale) {
+                                    Text("${connectPermissionState.permission} Permission Rational")
+                                }
+                                FilledTonalButton(onClick = { connectPermissionState.launchPermissionRequest() }) {
+                                    Text("Request Permission ${connectPermissionState.permission}")
+                                }
+                            }
+                        }
+                    }
+                    FilledTonalButton(modifier = Modifier.fillMaxWidth(), onClick = {
+                        checkPermission(advertisePermissionState) {
+                            checkPermission(connectPermissionState) {
+                                onStartAdvertisingClick()
+                            }
+                        }
+                    }) {
+                        Text(buttonState.value)
                     }
                     LazyColumn(content = {
                         items(histories.value.size) { index ->
@@ -56,6 +97,26 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     })
+                }
+            }
+        }
+    }
+
+    private fun checkPermission(permissionState: PermissionState, callback: () -> Unit) {
+        permissionState.status.also {
+            when (it) {
+                is PermissionStatus.Granted -> {
+                    callback()
+                }
+
+                is PermissionStatus.Denied -> {
+                    if (!it.shouldShowRationale) {
+                        permissionState.launchPermissionRequest()
+                    } else {
+                        Toast
+                            .makeText(this@MainActivity, "Permission ${permissionState.permission} Denied", Toast.LENGTH_SHORT)
+                            .show()
+                    }
                 }
             }
         }

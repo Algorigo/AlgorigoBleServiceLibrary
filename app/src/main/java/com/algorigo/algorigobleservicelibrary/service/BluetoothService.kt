@@ -20,17 +20,6 @@ import io.reactivex.rxjava3.disposables.Disposable
 import java.util.Date
 
 class BluetoothService : AbsForegroundService() {
-
-    enum class NotificationType(
-        val channelId: Int,
-        @StringRes val channelName: Int,
-        val importance: Int,
-        val hasBadge: Boolean = false
-    ) {
-        LOCAL_DEVICE_SERVICE(1001, R.string.app_name, NotificationManagerCompat.IMPORTANCE_LOW)
-        ;
-    }
-
     inner class ServiceBinder : Binder() {
         fun getService(): BluetoothService {
             return this@BluetoothService

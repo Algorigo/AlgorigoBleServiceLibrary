@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
+import android.util.Log
 import androidx.annotation.StringRes
 import androidx.core.app.NotificationManagerCompat
 import com.algorigo.algorigoble2.BleDevice
@@ -18,17 +19,6 @@ import io.reactivex.rxjava3.disposables.Disposable
 import java.util.Optional
 
 class TestService : AbsForegroundService() {
-
-    enum class NotificationType(
-        val channelId: Int,
-        @StringRes val channelName: Int,
-        val importance: Int,
-        val hasBadge: Boolean = false
-    ) {
-        LOCAL_DEVICE_SERVICE(1001, R.string.app_name, NotificationManagerCompat.IMPORTANCE_LOW)
-        ;
-    }
-
     inner class ServiceBinder : Binder() {
         fun getService(): TestService {
             return this@TestService
@@ -104,7 +94,7 @@ class TestService : AbsForegroundService() {
             .subscribe({
                 statesRelay.accept(it)
             }, {
-
+                Log.e(LOG_TAG, "Service error", it)
             })
     }
 
@@ -113,6 +103,8 @@ class TestService : AbsForegroundService() {
     }
 
     companion object {
+        private val LOG_TAG = TestService::class.java.simpleName
+
         fun bindServiceObservble(context: Context) = Rx2ServiceBindingFactory
             .bind<TestService.ServiceBinder>(
                 context, Intent(context, TestService::class.java)

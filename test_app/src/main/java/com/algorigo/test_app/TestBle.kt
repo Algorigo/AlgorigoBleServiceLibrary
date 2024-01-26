@@ -1,5 +1,6 @@
 package com.algorigo.test_app
 
+import android.os.ParcelUuid
 import android.util.Log
 import com.algorigo.algorigoble2.BleScanFilter
 import com.algorigo.algorigoble2.InitializableBleDevice
@@ -30,25 +31,22 @@ class TestBle : InitializableBleDevice() {
     override fun initializeCompletable(): Completable {
         return Completable.complete()
             .doOnComplete {
-                Log.e("!!!", "initializeCompletable")
                 macAddress = deviceId
                 connectedTime = Date()
                 stateRelay.accept(State(deviceId, connectedTime, disconnectedTime, notificationCount))
                 setupNotification(NotificationType.INDICATION, NOTIFY_CHARACTERISTIC_UUID)
                     .flatMap { it }
                     .subscribe({
-                        Log.e("!!!", "onNext:${it.joinToString()}")
                         notificationCount = (notificationCount ?: 0) + 1
                         stateRelay.accept(State(deviceId, connectedTime, disconnectedTime, notificationCount))
                     }, {
-                        Log.e("!!!", "notification error", it)
+                        Log.e(LOG_TAG, "notification error", it)
                     })
             }
     }
 
     override fun onDisconnected() {
         super.onDisconnected()
-        Log.e("!!!", "onDisconnected")
         disconnectedTime = Date()
         macAddress?.also {
             stateRelay.accept(State(it, connectedTime, disconnectedTime, notificationCount))
@@ -63,9 +61,10 @@ class TestBle : InitializableBleDevice() {
         val NOTIFY_CHARACTERISTIC_UUID = UUID.fromString("6E400003-B5A3-F393-E0A9-0123456789AB")
 
         fun getScanFilter(): BleScanFilter {
+            val parcelUuidMask = ParcelUuid.fromString("FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF")
             return BleScanFilter.Builder()
-//                .setServiceUuid(ParcelUuid(SERVICE_UUID))
-                .setDeviceName("TestBle")
+                .setServiceUuid(ParcelUuid(SERVICE_UUID), parcelUuidMask)
+//                .setDeviceName("TestBle")
                 .build()
         }
     }
