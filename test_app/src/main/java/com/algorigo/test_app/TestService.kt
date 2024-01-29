@@ -91,6 +91,15 @@ class TestService : AbsForegroundService() {
                 disposable = null
                 _scanningRelay.accept(false)
             }
+            .retryWhen {
+                it.flatMap {
+                    if (it is BleManager.DisconnectedException) {
+                        Observable.just(it)
+                    } else {
+                        Observable.error(it)
+                    }
+                }
+            }
             .subscribe({
                 statesRelay.accept(it)
             }, {
