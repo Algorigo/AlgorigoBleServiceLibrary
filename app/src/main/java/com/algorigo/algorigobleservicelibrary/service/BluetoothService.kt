@@ -6,15 +6,13 @@ import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
 import android.util.Log
-import androidx.annotation.StringRes
-import androidx.core.app.NotificationManagerCompat
+import com.algorigo.algorigobleservice.BleGattServiceGenerator
+import com.algorigo.algorigobleservice.BleGattServiceGenerator.Companion.startServer
 import com.algorigo.algorigobleservicelibrary.R
 import com.algorigo.algorigobleservicelibrary.ble_service.MyGattDelegate
 import com.algorigo.common_library.AbsForegroundService
 import com.algorigo.library.rx.Rx2ServiceBindingFactory
 import com.jakewharton.rxrelay3.BehaviorRelay
-import com.rouddy.twophonesupporter.BleGattServiceGenerator
-import com.rouddy.twophonesupporter.BleGattServiceGenerator.Companion.startServer
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.disposables.Disposable
 import java.util.Date

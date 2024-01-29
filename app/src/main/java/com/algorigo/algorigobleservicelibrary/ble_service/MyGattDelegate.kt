@@ -8,11 +8,9 @@ import android.os.BatteryManager
 import com.algorigo.algorigobleservice.BleGattDelegate
 import com.algorigo.algorigobleservicelibrary.util.throttle
 import com.algorigo.algorigobleservicelibrary.util.toByteArray
-import com.jakewharton.rxrelay3.PublishRelay
-import com.rouddy.twophonesupporter.BleAdvertiseOption
-import com.rouddy.twophonesupporter.BleGattServiceGenerator
+import com.algorigo.algorigobleservice.BleAdvertiseOption
+import com.algorigo.algorigobleservice.BleGattServiceGenerator
 import io.reactivex.rxjava3.core.Observable
-import java.util.Date
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 

@@ -1,4 +1,4 @@
-package com.rouddy.twophonesupporter
+package com.algorigo.algorigobleservice
 
 import android.Manifest
 import android.bluetooth.*

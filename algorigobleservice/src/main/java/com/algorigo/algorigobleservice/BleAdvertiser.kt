@@ -1,4 +1,4 @@
-package com.rouddy.twophonesupporter
+package com.algorigo.algorigobleservice
 
 import android.Manifest
 import android.bluetooth.BluetoothManager
@@ -9,7 +9,6 @@ import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.ParcelUuid
-import android.util.Log
 import androidx.core.app.ActivityCompat
 import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.Observable
