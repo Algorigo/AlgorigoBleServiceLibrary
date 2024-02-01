@@ -52,7 +52,11 @@ class TestActivity : ComponentActivity() {
         setContent {
             val scanPermissionStatus = rememberPermissionState(Manifest.permission.BLUETOOTH_SCAN)
             val connectPermissionState = rememberPermissionState(Manifest.permission.BLUETOOTH_CONNECT)
-
+            val errorListState = TestService
+                .bindServiceObservble(this)
+                .flatMap { it.errorListObservable }
+                .asFlow()
+                .collectAsStateWithLifecycle(initialValue = listOf())
             val buttonState = scanningObservable()
                 .asFlow()
                 .collectAsStateWithLifecycle(initialValue = "Start Scan")
@@ -97,6 +101,7 @@ class TestActivity : ComponentActivity() {
                             }
                         }
                     }
+                    Text(errorListState.value.joinToString("\n"), modifier = Modifier.fillMaxWidth())
                     DeviceList(states = statesFlow.value, modifier = Modifier.fillMaxWidth())
                 }
             }

@@ -6,14 +6,13 @@ import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
 import android.util.Log
-import androidx.annotation.StringRes
-import androidx.core.app.NotificationManagerCompat
 import com.algorigo.algorigoble2.BleDevice
 import com.algorigo.algorigoble2.BleManager
 import com.algorigo.algorigoble2.BleScanSettings
 import com.algorigo.common_library.AbsForegroundService
 import com.algorigo.library.rx.Rx2ServiceBindingFactory
 import com.jakewharton.rxrelay3.BehaviorRelay
+import com.jakewharton.rxrelay3.ReplayRelay
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.disposables.Disposable
 import java.util.Optional
@@ -31,6 +30,10 @@ class TestService : AbsForegroundService() {
     val scanningObservable: Observable<Boolean>
         get() = _scanningRelay
     val statesRelay = BehaviorRelay.create<List<TestBle.State>>()
+    private var _errorRelay = ReplayRelay.create<Throwable>()
+    val errorListObservable: Observable<List<Throwable>>
+        get() = _errorRelay
+            .scan(listOf()) { t1, t2 -> t1 + t2 }
 
     private lateinit var manager: BleManager
     private val delegate = object : BleManager.BleDeviceDelegate() {
@@ -46,6 +49,11 @@ class TestService : AbsForegroundService() {
 
     override fun onBind(intent: Intent): IBinder {
         return binder
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        _errorRelay = ReplayRelay.create()
     }
 
     override fun getChannelId(): Int = NotificationType.LOCAL_DEVICE_SERVICE.channelId
@@ -87,18 +95,13 @@ class TestService : AbsForegroundService() {
                     .apply { put(state.macAddress, state) }
             }
             .map { it.values.sortedBy { it.connectedTime } }
+            .doOnError {
+                _errorRelay.accept(it)
+            }
+            .retry()
             .doFinally {
                 disposable = null
                 _scanningRelay.accept(false)
-            }
-            .retryWhen {
-                it.flatMap {
-                    if (it is BleManager.DisconnectedException) {
-                        Observable.just(it)
-                    } else {
-                        Observable.error(it)
-                    }
-                }
             }
             .subscribe({
                 statesRelay.accept(it)
