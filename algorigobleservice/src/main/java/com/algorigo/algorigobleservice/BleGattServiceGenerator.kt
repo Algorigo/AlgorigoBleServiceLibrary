@@ -86,9 +86,12 @@ class BleGattServiceGenerator {
         override fun onCharacteristicReadRequest(device: BluetoothDevice?, requestId: Int, offset: Int, characteristic: BluetoothGattCharacteristic?) {
             super.onCharacteristicReadRequest(device, requestId, offset, characteristic)
             eventRelay.accept(BluetoothServiceEvent.CharacteristicReadRequest(characteristic!!) {
-                gattServer.sendResponse(device!!, requestId, BluetoothGatt.GATT_SUCCESS, offset, it)
+                if (it.size > offset) {
+                    gattServer.sendResponse(device!!, requestId, BluetoothGatt.GATT_SUCCESS, offset, it.copyOfRange(offset, minOf(it.size, offset + 22)))
+                } else {
+                    gattServer.sendResponse(device!!, requestId, BluetoothGatt.GATT_SUCCESS, offset, byteArrayOf())
+                }
             })
-
         }
 
         override fun onCharacteristicWriteRequest(device: BluetoothDevice?, requestId: Int, characteristic: BluetoothGattCharacteristic?, preparedWrite: Boolean, responseNeeded: Boolean, offset: Int, value: ByteArray?) {
