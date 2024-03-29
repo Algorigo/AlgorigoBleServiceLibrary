@@ -6,7 +6,7 @@ import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
 import android.util.Log
-import com.algorigo.algorigobleservice.BleGattServiceGenerator
+import com.algorigo.algorigobleservice.BleGattDelegate
 import com.algorigo.algorigobleservice.BleGattServiceGenerator.Companion.startServer
 import com.algorigo.algorigobleservicelibrary.R
 import com.algorigo.algorigobleservicelibrary.ble_service.MyGattDelegate
@@ -63,18 +63,15 @@ class BluetoothService : AbsForegroundService() {
                 .doFinally {
                     advertisingDisposable = null
                 }
-                .doOnNext {
-                    myGattDelegate.handleEvent(it)
-                }
                 .scan(listOf<Triple<String, Date, Date?>>()) { acc, event ->
                     when (event) {
-                        is BleGattServiceGenerator.BluetoothServiceEvent.ClientConnected -> {
+                        is BleGattDelegate.DelegateEvent.ClientConnected -> {
                             acc
                                 .toMutableList()
                                 .also { it.add(Triple(event.client.address, Date(), null)) }
                         }
 
-                        is BleGattServiceGenerator.BluetoothServiceEvent.ClientDisconnected -> {
+                        is BleGattDelegate.DelegateEvent.ClientDisconnected -> {
                             val index = acc.indexOfFirst { it.first == event.client.address && it.third == null }
                             acc
                                 .toMutableList()

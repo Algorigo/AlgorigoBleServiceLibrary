@@ -15,7 +15,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 @SuppressLint("MissingPermission")
-class MyGattDelegate(context: Context) : BleGattDelegate {
+class MyGattDelegate(context: Context) : BleGattDelegate<Any>() {
 
     private val batteryManager: BatteryManager
 

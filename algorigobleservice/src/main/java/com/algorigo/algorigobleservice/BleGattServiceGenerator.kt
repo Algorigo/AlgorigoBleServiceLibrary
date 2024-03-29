@@ -291,8 +291,12 @@ class BleGattServiceGenerator {
         }
 
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-        fun startServer(context: Context, bleGattDelgate: BleGattDelegate): Observable<BluetoothServiceEvent> {
+        fun <T : Any> startServer(context: Context, bleGattDelgate: BleGattDelegate<T>): Observable<BleGattDelegate.DelegateEvent<T>> {
             return startServer(context, bleGattDelgate.getServices(), bleGattDelgate.getAdvertiseOption())
+                .doOnNext { bleGattDelgate.handleEvent(it) }
+                .ignoreElements()
+                .toObservable<BleGattDelegate.DelegateEvent<T>>()
+                .mergeWith(bleGattDelgate.getEventObservable())
         }
 
         fun initWritableCharacteristic(uuid: UUID): BluetoothGattCharacteristic {
