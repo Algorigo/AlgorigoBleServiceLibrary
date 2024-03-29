@@ -82,13 +82,11 @@ internal object BleAdvertiser {
 
                 val data = AdvertiseData
                     .Builder()
-                    .setIncludeDeviceName(true)
                     .setIncludeTxPowerLevel(false)
-                    .let {
+                    .setIncludeDeviceName(option.name != null)
+                    .apply {
                         if (option.uuid != null) {
-                            it.addServiceUuid(ParcelUuid(option.uuid))
-                        } else {
-                            it
+                            addServiceUuid(ParcelUuid(option.uuid))
                         }
                     }
                     .build()
