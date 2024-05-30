@@ -8,6 +8,7 @@ import android.bluetooth.le.AdvertiseSettings
 import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.ParcelUuid
 import androidx.core.app.ActivityCompat
 import io.reactivex.rxjava3.core.Completable
@@ -59,7 +60,8 @@ internal object BleAdvertiser {
 
         return Completable
             .fromCallable {
-                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_ADVERTISE) != PackageManager.PERMISSION_GRANTED) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                    && ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_ADVERTISE) != PackageManager.PERMISSION_GRANTED) {
                     throw RuntimeException("Permission")
                 }
 
