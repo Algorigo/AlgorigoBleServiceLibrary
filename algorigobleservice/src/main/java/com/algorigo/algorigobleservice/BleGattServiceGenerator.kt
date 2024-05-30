@@ -1,15 +1,15 @@
-package com.rouddy.twophonesupporter
+package com.algorigo.algorigobleservice
 
 import android.Manifest
 import android.bluetooth.*
 import android.content.Context
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresPermission
 import com.algorigo.algorigobleservice.BleGattDelegate
 import com.jakewharton.rxrelay3.BehaviorRelay
 import com.jakewharton.rxrelay3.PublishRelay
 import io.reactivex.rxjava3.core.Completable
+import io.reactivex.rxjava3.core.Maybe
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.disposables.Disposable
 import io.reactivex.rxjava3.schedulers.Schedulers
@@ -18,16 +18,21 @@ import java.util.UUID
 class BleGattServiceGenerator {
 
     enum class NotificationType {
-        Notification,
-        Indication,
+        Notification, Indication,
+    }
+
+    private sealed class DeviceConnection {
+        object NoDevice : DeviceConnection()
+        class Connection(val bluetoothDevice: BluetoothDevice) : DeviceConnection()
     }
 
     private sealed class State {
-        class WaitForConnect : State() {
+        object WaitForConnect : State() {
             override fun equals(other: Any?): Boolean {
                 return other is WaitForConnect
             }
         }
+
         class Connected(val device: BluetoothDevice) : State() {
             override fun equals(other: Any?): Boolean {
                 return other is Connected && device.address.equals(other.device.address)
@@ -35,10 +40,12 @@ class BleGattServiceGenerator {
         }
     }
 
-    sealed class BluetoothDelegateEvent(val characteristic: BluetoothGattCharacteristic) {
-        class CharacteristicReadRequest(characteristic: BluetoothGattCharacteristic, val callback: (ByteArray) -> Boolean) : BluetoothDelegateEvent(characteristic)
-        class CharacteristicWriteRequest(characteristic: BluetoothGattCharacteristic, val value: ByteArray, val callback: (ByteArray) -> Boolean) : BluetoothDelegateEvent(characteristic)
-        class NotificationStartRequest(characteristic: BluetoothGattCharacteristic, val type: NotificationType, val onNotificationSentObservable: Observable<Any>, val callback: (Observable<ByteArray>) -> Unit) : BluetoothDelegateEvent(characteristic)
+    sealed class BluetoothServiceEvent {
+        class ClientConnected(val client: BluetoothDevice) : BluetoothServiceEvent()
+        class CharacteristicReadRequest(val characteristic: BluetoothGattCharacteristic, val callback: (ByteArray) -> Boolean) : BluetoothServiceEvent()
+        class CharacteristicWriteRequest(val characteristic: BluetoothGattCharacteristic, val value: ByteArray, val callback: (ByteArray) -> Boolean) : BluetoothServiceEvent()
+        class NotificationStartRequest(val characteristic: BluetoothGattCharacteristic, val type: NotificationType, val onNotificationSentObservable: Observable<Any>, val callback: (Observable<ByteArray>) -> Unit) : BluetoothServiceEvent()
+        class ClientDisconnected(val client: BluetoothDevice) : BluetoothServiceEvent()
     }
 
     private var connectedDevice: BluetoothDevice? = null
@@ -52,8 +59,8 @@ class BleGattServiceGenerator {
         private set
     private var stateRelay = BehaviorRelay
         .create<State>()
-        .apply { accept(State.WaitForConnect()) }
-    private var eventRelay = PublishRelay.create<BluetoothDelegateEvent>()
+        .apply { accept(State.WaitForConnect) }
+    private var eventRelay = PublishRelay.create<BluetoothServiceEvent>()
     private var onNotificationSentRelay = PublishRelay.create<Any>()
     private var notificationMap = mutableMapOf<UUID, NotificationType>()
     private var disposableMap = mutableMapOf<UUID, Disposable>()
@@ -78,15 +85,18 @@ class BleGattServiceGenerator {
 
         override fun onCharacteristicReadRequest(device: BluetoothDevice?, requestId: Int, offset: Int, characteristic: BluetoothGattCharacteristic?) {
             super.onCharacteristicReadRequest(device, requestId, offset, characteristic)
-            eventRelay.accept(BluetoothDelegateEvent.CharacteristicReadRequest(characteristic!!) {
-                gattServer.sendResponse(device!!, requestId, BluetoothGatt.GATT_SUCCESS, offset, it)
+            eventRelay.accept(BluetoothServiceEvent.CharacteristicReadRequest(characteristic!!) {
+                if (it.size > offset) {
+                    gattServer.sendResponse(device!!, requestId, BluetoothGatt.GATT_SUCCESS, offset, it.copyOfRange(offset, minOf(it.size, offset + 22)))
+                } else {
+                    gattServer.sendResponse(device!!, requestId, BluetoothGatt.GATT_SUCCESS, offset, byteArrayOf())
+                }
             })
-
         }
 
         override fun onCharacteristicWriteRequest(device: BluetoothDevice?, requestId: Int, characteristic: BluetoothGattCharacteristic?, preparedWrite: Boolean, responseNeeded: Boolean, offset: Int, value: ByteArray?) {
             super.onCharacteristicWriteRequest(device, requestId, characteristic, preparedWrite, responseNeeded, offset, value)
-            eventRelay.accept(BluetoothDelegateEvent.CharacteristicWriteRequest(characteristic!!, value!!) {
+            eventRelay.accept(BluetoothServiceEvent.CharacteristicWriteRequest(characteristic!!, value!!) {
                 gattServer.sendResponse(device!!, requestId, BluetoothGatt.GATT_SUCCESS, offset, it)
             })
         }
@@ -175,7 +185,7 @@ class BleGattServiceGenerator {
 
             notificationMap[descriptor.characteristic.uuid] = type
 
-            eventRelay.accept(BluetoothDelegateEvent.NotificationStartRequest(descriptor.characteristic, type, onNotificationSentRelay) {
+            eventRelay.accept(BluetoothServiceEvent.NotificationStartRequest(descriptor.characteristic, type, onNotificationSentRelay) {
                 disposableMap[descriptor.characteristic.uuid] = it
                     .onErrorComplete()
                     .doFinally {
@@ -195,7 +205,7 @@ class BleGattServiceGenerator {
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    internal fun initialize(context: Context, services: List<BluetoothGattService>, option: BleAdvertiseOption): Observable<BluetoothDelegateEvent> {
+    internal fun initialize(context: Context, services: List<BluetoothGattService>, option: BleAdvertiseOption): Observable<BluetoothServiceEvent> {
         return eventRelay
             .mergeWith(Completable
                 .fromCallable {
@@ -213,15 +223,32 @@ class BleGattServiceGenerator {
                 .switchMap {
                     when (it) {
                         is State.WaitForConnect -> {
-                            BleAdvertiser.startAdvertising(context, option)
+                            Observable
+                                .just(DeviceConnection.NoDevice)
+                                .mergeWith(
+                                    BleAdvertiser
+                                        .startAdvertising(context, option)
+                                        .ignoreElements()
+                                )
                         }
 
                         is State.Connected -> {
-                            Observable.empty()
+                            Observable.just(DeviceConnection.Connection(it.device))
                         }
                     }
                 }
-                .ignoreElements())
+                .buffer(2, 1)
+                .flatMapMaybe {
+                    val prev = it[0]
+                    val next = it[1]
+                    if (prev is DeviceConnection.Connection && next is DeviceConnection.NoDevice) {
+                        Maybe.just(BluetoothServiceEvent.ClientDisconnected(prev.bluetoothDevice))
+                    } else if (prev is DeviceConnection.NoDevice && next is DeviceConnection.Connection) {
+                        Maybe.just(BluetoothServiceEvent.ClientConnected(next.bluetoothDevice))
+                    } else {
+                        Maybe.empty()
+                    }
+                })
             .doFinally {
                 disconnectDevice()
                 gattServer.close()
@@ -245,7 +272,7 @@ class BleGattServiceGenerator {
 
     private fun onDisconnected() {
         connectedDevice = null
-        stateRelay.accept(State.WaitForConnect())
+        stateRelay.accept(State.WaitForConnect)
     }
 
     private fun disconnectDevice() {
@@ -257,15 +284,19 @@ class BleGattServiceGenerator {
 
     companion object {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-        fun startServer(context: Context, services: List<BluetoothGattService>, option: BleAdvertiseOption): Observable<BluetoothDelegateEvent> {
+        fun startServer(context: Context, services: List<BluetoothGattService>, option: BleAdvertiseOption): Observable<BluetoothServiceEvent> {
             return BleGattServiceGenerator()
                 .initialize(context, services, option)
                 .subscribeOn(Schedulers.io())
         }
 
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-        fun startServer(context: Context, bleGattDelgate: BleGattDelegate): Observable<BluetoothDelegateEvent> {
+        fun <T : Any> startServer(context: Context, bleGattDelgate: BleGattDelegate<T>): Observable<BleGattDelegate.DelegateEvent<T>> {
             return startServer(context, bleGattDelgate.getServices(), bleGattDelgate.getAdvertiseOption())
+                .doOnNext { bleGattDelgate.handleEvent(it) }
+                .ignoreElements()
+                .toObservable<BleGattDelegate.DelegateEvent<T>>()
+                .mergeWith(bleGattDelgate.getEventObservable())
         }
 
         fun initWritableCharacteristic(uuid: UUID): BluetoothGattCharacteristic {

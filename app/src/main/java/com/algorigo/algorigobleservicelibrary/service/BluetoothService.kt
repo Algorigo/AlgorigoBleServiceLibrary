@@ -1,30 +1,23 @@
 package com.algorigo.algorigobleservicelibrary.service
 
 import android.annotation.SuppressLint
-import android.app.Notification
-import android.app.PendingIntent
-import android.app.Service
-import android.bluetooth.BluetoothGattService
 import android.content.Context
 import android.content.Intent
 import android.os.Binder
-import android.os.Build
 import android.os.IBinder
 import android.util.Log
-import androidx.core.app.NotificationCompat
+import com.algorigo.algorigobleservice.BleGattDelegate
+import com.algorigo.algorigobleservice.BleGattServiceGenerator.Companion.startServer
 import com.algorigo.algorigobleservicelibrary.R
 import com.algorigo.algorigobleservicelibrary.ble_service.MyGattDelegate
-import com.algorigo.algorigobleservicelibrary.util.NotificationUtil
+import com.algorigo.common_library.AbsForegroundService
 import com.algorigo.library.rx.Rx2ServiceBindingFactory
-import com.rouddy.twophonesupporter.BleGattServiceGenerator.Companion.initBatteryService
-import com.rouddy.twophonesupporter.BleGattServiceGenerator.Companion.initIndicateCharacteristic
-import com.rouddy.twophonesupporter.BleGattServiceGenerator.Companion.initWritableCharacteristic
-import com.rouddy.twophonesupporter.BleGattServiceGenerator.Companion.startServer
+import com.jakewharton.rxrelay3.BehaviorRelay
+import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.disposables.Disposable
-import kotlin.system.exitProcess
+import java.util.Date
 
-class BluetoothService : Service() {
-
+class BluetoothService : AbsForegroundService() {
     inner class ServiceBinder : Binder() {
         fun getService(): BluetoothService {
             return this@BluetoothService
@@ -34,6 +27,13 @@ class BluetoothService : Service() {
     private val binder = ServiceBinder()
     private lateinit var myGattDelegate: MyGattDelegate
     private var advertisingDisposable: Disposable? = null
+    private var _advertisingRelay = BehaviorRelay.create<Boolean>()
+    val advertisingObservable: Observable<Boolean>
+        get() = _advertisingRelay
+
+    private var connectionHistoryRelay = BehaviorRelay.create<List<Triple<String, Date, Date?>>>()
+    val connectionHistoryObservable: Observable<List<Triple<String, Date, Date?>>>
+        get() = connectionHistoryRelay
 
     override fun onCreate() {
         super.onCreate()
@@ -44,65 +44,46 @@ class BluetoothService : Service() {
         return binder
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_STOP_SERVICE -> {
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
-                exitProcess(0)
-            }
+    override fun getChannelId(): Int = NotificationType.LOCAL_DEVICE_SERVICE.channelId
 
-            null -> {
-                startForeground()
-            }
-        }
-        return START_STICKY
-    }
+    override fun getChannelName(): String = getString(NotificationType.LOCAL_DEVICE_SERVICE.channelName)
 
-    private fun startForeground() {
-        val notificationType = NotificationUtil.NotificationType.LOCAL_DEVICE_SERVICE
-
-        NotificationUtil.createNotificationChannel(this, notificationType)
-
-        val stopSelf = Intent(this, BluetoothService::class.java).apply { action = ACTION_STOP_SERVICE }
-
-        val pStopSelf = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            PendingIntent.getService(this, 0, stopSelf, PendingIntent.FLAG_IMMUTABLE)
-        } else {
-            PendingIntent.getService(this, 0, stopSelf, PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        }
-
-        val action = NotificationCompat.Action
-            .Builder(android.R.drawable.ic_menu_close_clear_cancel, "Stop", pStopSelf)
-            .build()
-
-        val notification: Notification = NotificationUtil.getNotification(
-            this, iconRes = R.drawable.ic_launcher_foreground, type = notificationType, action = action
-        )
-
-        startForeground(notificationType.channelId, notification)
-    }
-
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        super.onTaskRemoved(rootIntent)
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-    }
+    override fun getIconRes(): Int = R.drawable.ic_launcher_foreground
 
     @SuppressLint("MissingPermission")
     fun toggleAdvertising() {
         if (advertisingDisposable != null) {
+            _advertisingRelay.accept(false)
             advertisingDisposable?.dispose()
         } else {
+            _advertisingRelay.accept(true)
             advertisingDisposable = startServer(
                 this, myGattDelegate
             )
                 .doFinally {
                     advertisingDisposable = null
                 }
+                .scan(listOf<Triple<String, Date, Date?>>()) { acc, event ->
+                    when (event) {
+                        is BleGattDelegate.DelegateEvent.ClientConnected -> {
+                            acc
+                                .toMutableList()
+                                .also { it.add(Triple(event.client.address, Date(), null)) }
+                        }
+
+                        is BleGattDelegate.DelegateEvent.ClientDisconnected -> {
+                            val index = acc.indexOfFirst { it.first == event.client.address && it.third == null }
+                            acc
+                                .toMutableList()
+                                .also { it[index] = Triple(it[index]. first, it[index].second, Date()) }
+                        }
+
+                        else -> acc
+                    }
+                }
                 .subscribe({
                     Log.e(LOG_TAG, "event:$it")
-                    myGattDelegate.handleEvent(it)
+                    connectionHistoryRelay.accept(it)
                 }, {
                     Log.e(LOG_TAG, "error", it)
                 })

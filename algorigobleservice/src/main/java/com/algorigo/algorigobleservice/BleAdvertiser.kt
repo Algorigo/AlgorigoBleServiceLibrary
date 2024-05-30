@@ -1,4 +1,4 @@
-package com.rouddy.twophonesupporter
+package com.algorigo.algorigobleservice
 
 import android.Manifest
 import android.bluetooth.BluetoothManager
@@ -8,8 +8,8 @@ import android.bluetooth.le.AdvertiseSettings
 import android.bluetooth.le.BluetoothLeAdvertiser
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.ParcelUuid
-import android.util.Log
 import androidx.core.app.ActivityCompat
 import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.Observable
@@ -60,7 +60,8 @@ internal object BleAdvertiser {
 
         return Completable
             .fromCallable {
-                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_ADVERTISE) != PackageManager.PERMISSION_GRANTED) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                    && ActivityCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_ADVERTISE) != PackageManager.PERMISSION_GRANTED) {
                     throw RuntimeException("Permission")
                 }
 
@@ -83,13 +84,11 @@ internal object BleAdvertiser {
 
                 val data = AdvertiseData
                     .Builder()
-                    .setIncludeDeviceName(true)
                     .setIncludeTxPowerLevel(false)
-                    .let {
+                    .setIncludeDeviceName(option.name != null)
+                    .apply {
                         if (option.uuid != null) {
-                            it.addServiceUuid(ParcelUuid(option.uuid))
-                        } else {
-                            it
+                            addServiceUuid(ParcelUuid(option.uuid))
                         }
                     }
                     .build()
