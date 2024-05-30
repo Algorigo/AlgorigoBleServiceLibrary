@@ -23,6 +23,8 @@ jobs:
           mkdir -p ~/.gradle
           curl $GRADLE_PROPERTY_PATH --output ~/.gradle/gradle.properties
           curl $SECRET_KEY_RING_PATH --output algorigobleservice/secret-keys.gpg
+          curl $APP_GOOGLE_SERVICE_JSON --output app/google-services.json
+          curl $TEST_APP_GOOGLE_SERVICE_JSON --output test_app/google-services.json
     - run:
         command: |
           ./gradlew build
